@@ -1,5 +1,7 @@
 mod hmap;
 mod map;
+mod echo;
+mod set;
 
 use crate::{Backend, RespArray, RespError, RespFrame, SimpleString};
 use enum_dispatch::enum_dispatch;
@@ -37,6 +39,10 @@ pub enum Command {
     HGet(HGet),
     HSet(HSet),
     HGetAll(HGetAll),
+    Echo(Echo),
+    HMGet(HMGet),
+    SAdd(SAdd),
+    SIsMember(SIsMember),
 
     // unrecognized command
     Unrecognized(Unrecognized),
@@ -73,6 +79,29 @@ pub struct HGetAll {
 }
 
 #[derive(Debug)]
+pub struct Echo {
+    msg: String,
+}
+
+#[derive(Debug)]
+pub struct HMGet {
+    key: String,
+    fields: Vec<String>,
+}
+
+#[derive(Debug)]
+pub struct SAdd {
+    key: String,
+    members: Vec<String>,
+}
+
+#[derive(Debug)]
+pub struct SIsMember {
+    key: String,
+    member: String,
+}
+
+#[derive(Debug)]
 pub struct Unrecognized;
 
 impl TryFrom<RespFrame> for Command {
@@ -97,6 +126,10 @@ impl TryFrom<RespArray> for Command {
                 b"hget" => Ok(HGet::try_from(v)?.into()),
                 b"hset" => Ok(HSet::try_from(v)?.into()),
                 b"hgetall" => Ok(HGetAll::try_from(v)?.into()),
+                b"echo" => Ok(Echo::try_from(v)?.into()),
+                b"hmget" => Ok(HMGet::try_from(v)?.into()),
+                b"sadd" => Ok(SAdd::try_from(v)?.into()),
+                b"sismember" => Ok(SIsMember::try_from(v)?.into()),
                 _ => Ok(Unrecognized.into()),
             },
             _ => Err(CommandError::InvalidCommand(
@@ -144,6 +177,21 @@ fn validate_command(
         }
     }
     Ok(())
+}
+
+fn validate_multi_arg_command(
+    value: &RespArray,
+    names: &[&'static str],
+    least_n_args: usize,
+) -> Result<(), CommandError> {
+    if value.len() < names.len() + least_n_args {
+        return Err(CommandError::InvalidArgument(format!(
+            "{} command must have at least {} argument",
+            names.join(" "),
+            least_n_args
+        )));
+    }
+    return validate_command(value, names, value.len() - names.len());
 }
 
 fn extract_args(value: RespArray, start: usize) -> Result<Vec<RespFrame>, CommandError> {

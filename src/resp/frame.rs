@@ -7,6 +7,7 @@ use enum_dispatch::enum_dispatch;
 
 #[enum_dispatch(RespEncode)]
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
+
 pub enum RespFrame {
     SimpleString(SimpleString),
     Error(SimpleError),

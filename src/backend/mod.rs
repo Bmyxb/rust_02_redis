@@ -1,5 +1,5 @@
 use crate::RespFrame;
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -10,6 +10,7 @@ pub struct Backend(Arc<BackendInner>);
 pub struct BackendInner {
     pub(crate) map: DashMap<String, RespFrame>,
     pub(crate) hmap: DashMap<String, DashMap<String, RespFrame>>,
+    pub(crate) set: DashMap<String, DashSet<String>>,
 }
 
 impl Deref for Backend {
@@ -31,6 +32,7 @@ impl Default for BackendInner {
         Self {
             map: DashMap::new(),
             hmap: DashMap::new(),
+            set: DashMap::new(),
         }
     }
 }
@@ -61,5 +63,32 @@ impl Backend {
 
     pub fn hgetall(&self, key: &str) -> Option<DashMap<String, RespFrame>> {
         self.hmap.get(key).map(|v| v.clone())
+    }
+
+    pub fn echo(&self, msg: &str) -> String {
+        msg.to_string()
+    }
+
+    pub fn hmget(&self, key: &str, fields: &[String]) -> Option<Vec<RespFrame>> {
+        self.hmap.get(key).and_then(|v| {
+            let mut vec = Vec::with_capacity(fields.len());
+            for field in fields {
+                v.get(field.as_str()).map(|v| vec.push(v.value().clone()));
+            }
+
+            Some(vec)
+        })
+    }
+
+    pub fn sadd(&self, key: String, members: Vec<String>) -> i32 {
+        let set = self.set.entry(key).or_default();
+        members
+            .iter()
+            .map(|v| if set.insert(v.clone()) { 1 } else { 0 })
+            .sum()
+    }
+
+    pub fn sismember(&self, key: &str, member: &str) -> Option<bool> {
+        self.set.get(key).and_then(|v| v.get(member).map(|_| true))
     }
 }
