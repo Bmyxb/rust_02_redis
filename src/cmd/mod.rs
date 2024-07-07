@@ -195,7 +195,7 @@ fn validate_multi_arg_command(
 }
 
 fn extract_args(value: RespArray, start: usize) -> Result<Vec<RespFrame>, CommandError> {
-    Ok(value.0.into_iter().skip(start).collect::<Vec<RespFrame>>())
+    Ok(value.data.into_iter().skip(start).collect::<Vec<RespFrame>>())
 }
 
 #[cfg(test)]

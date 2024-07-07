@@ -29,9 +29,9 @@ impl CommandExecutor for HGetAll {
                     .flat_map(|(k, v)| vec![BulkString::from(k).into(), v])
                     .collect::<Vec<RespFrame>>();
 
-                RespArray::new(ret).into()
+                RespArray::new(ret, false).into()
             }
-            None => RespArray::new([]).into(),
+            None => RespArray::new([], true).into(),
         }
     }
 }
@@ -48,9 +48,9 @@ impl CommandExecutor for HMGet {
         let hmap = backend.hmget(&self.key, &self.fields);
         match hmap {
             Some(hmap) => {
-                RespArray::new(hmap).into()
+                RespArray::new(hmap, false).into()
             }
-            None => RespArray::new([]).into(),
+            None => RespArray::new([], true).into(),
         }
     }
 }
@@ -63,8 +63,8 @@ impl TryFrom<RespArray> for HGet {
         let mut args = extract_args(value, 1)?.into_iter();
         match (args.next(), args.next()) {
             (Some(RespFrame::BulkString(key)), Some(RespFrame::BulkString(field))) => Ok(HGet {
-                key: String::from_utf8(key.0)?,
-                field: String::from_utf8(field.0)?,
+                key: String::from_utf8(key.data)?,
+                field: String::from_utf8(field.data)?,
             }),
             _ => Err(CommandError::InvalidArgument(
                 "Invalid key or field".to_string(),
@@ -81,7 +81,7 @@ impl TryFrom<RespArray> for HGetAll {
         let mut args = extract_args(value, 1)?.into_iter();
         match args.next() {
             Some(RespFrame::BulkString(key)) => Ok(HGetAll {
-                key: String::from_utf8(key.0)?,
+                key: String::from_utf8(key.data)?,
                 sort: false,
             }),
             _ => Err(CommandError::InvalidArgument("Invalid key".to_string())),
@@ -98,8 +98,8 @@ impl TryFrom<RespArray> for HSet {
         match (args.next(), args.next(), args.next()) {
             (Some(RespFrame::BulkString(key)), Some(RespFrame::BulkString(field)), Some(value)) => {
                 Ok(HSet {
-                    key: String::from_utf8(key.0)?,
-                    field: String::from_utf8(field.0)?,
+                    key: String::from_utf8(key.data)?,
+                    field: String::from_utf8(field.data)?,
                     value,
                 })
             }
@@ -121,12 +121,12 @@ impl TryFrom<RespArray> for HMGet {
         };
         let mut args = extract_args(value, 1)?.into_iter();
         match args.next() {
-            Some(RespFrame::BulkString(key)) => result.key = String::from_utf8(key.0)?,
+            Some(RespFrame::BulkString(key)) => result.key = String::from_utf8(key.data)?,
             _ => return Err(CommandError::InvalidArgument("Invalid key".to_string())),
         };
 
         while let Some(RespFrame::BulkString(field)) = args.next() {
-            result.fields.push(String::from_utf8(field.0)?);
+            result.fields.push(String::from_utf8(field.data)?);
         }
 
         Ok(result)
@@ -233,7 +233,7 @@ mod tests {
             BulkString::from("world").into(),
             BulkString::from("hello1").into(),
             BulkString::from("world1").into(),
-        ]);
+        ], false);
         assert_eq!(result, expected.into());
         Ok(())
     }
@@ -261,7 +261,7 @@ mod tests {
             fields: vec!["hello".to_string(), "hello1".to_string()],
         };
         let result = cmd.execute(&backend);
-        assert_eq!(result, RespArray::new([BulkString::from("world").into(), BulkString::from("world1").into()]).into());
+        assert_eq!(result, RespArray::new([BulkString::from("world").into(), BulkString::from("world1").into()], false).into());
 
         Ok(())
     }

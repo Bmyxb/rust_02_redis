@@ -19,8 +19,8 @@ const CRLF: &[u8] = b"\r\n";
 const CRLF_LEN: usize = CRLF.len();
 
 pub use self::{
-    array::{RespArray, RespNullArray},
-    bulk_string::{BulkString, RespNullBulkString},
+    array::RespArray,
+    bulk_string::BulkString,
     frame::RespFrame,
     map::RespMap,
     null::RespNull,
@@ -110,6 +110,18 @@ fn find_crlf(buf: &[u8], nth: usize) -> Option<usize> {
     }
 
     None
+}
+
+fn parse_null(buf: &[u8], prefix: &str) -> bool {
+    if buf.len() < 5 {
+        return false;
+    }
+
+    if !buf.starts_with(format!("{}{}", prefix, "-1\r\n").as_bytes()) {
+        return false;
+    }
+
+    true
 }
 
 fn parse_length(buf: &[u8], prefix: &str) -> Result<(usize, usize), RespError> {

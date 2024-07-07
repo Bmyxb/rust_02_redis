@@ -1,6 +1,6 @@
 use crate::{
-    BulkString, RespArray, RespError, RespFrame, RespMap, RespNull, RespNullArray,
-    RespNullBulkString, SimpleError, SimpleString,
+    BulkString, RespArray, RespError, RespFrame, RespMap, RespNull,
+    SimpleError, SimpleString,
 };
 use std::{collections::BTreeMap, num::NonZeroUsize};
 use winnow::{
@@ -53,8 +53,8 @@ pub fn parse_frame(input: &mut &[u8]) -> PResult<RespFrame> {
         b'+' => simple_string.map(RespFrame::SimpleString),
         b'-' => error.map(RespFrame::Error),
         b':' => integer.map(RespFrame::Integer),
-        b'$' => alt((null_bulk_string.map(RespFrame::NullBulkString),bulk_string.map(RespFrame::BulkString))),
-        b'*' => alt((null_array.map(RespFrame::NullArray), array.map(RespFrame::Array))),
+        b'$' => bulk_string.map(RespFrame::BulkString),
+        b'*' => array.map(RespFrame::Array),
         b'_' => null.map(RespFrame::Null),
         b'#' => boolean.map(RespFrame::Boolean),
         b',' => double.map(RespFrame::Double),
@@ -82,24 +82,19 @@ fn integer(input: &mut &[u8]) -> PResult<i64> {
     Ok(if sign { -v } else { v })
 }
 
-// - null bulk string: "$-1\r\n"
-fn null_bulk_string(input: &mut &[u8]) -> PResult<RespNullBulkString> {
-    "-1\r\n".value(RespNullBulkString).parse_next(input)
-}
-
 // - bulk string: "$6\r\nfoobar\r\n"
 #[allow(clippy::comparison_chain)]
 fn bulk_string(input: &mut &[u8]) -> PResult<BulkString> {
     let len: i64 = integer.parse_next(input)?;
-    if len == 0 {
-        return Ok(BulkString(vec![]));
+    if len == 0 || len == -1 {
+        return Ok(BulkString::new(vec![], true));
     } else if len < 0 {
         return Err(err_cut("bulk string length must be non-negative"));
     }
     let data = terminated(take(len as usize), CRLF)
         .map(|s: &[u8]| s.to_vec())
         .parse_next(input)?;
-    Ok(BulkString(data))
+    Ok(BulkString::new(data, false))
 }
 
 fn bulk_string_len(input: &mut &[u8]) -> PResult<()> {
@@ -121,17 +116,12 @@ fn bulk_string_len(input: &mut &[u8]) -> PResult<()> {
     Ok(())
 }
 
-// - null array: "*-1\r\n"
-fn null_array(input: &mut &[u8]) -> PResult<RespNullArray> {
-    "-1\r\n".value(RespNullArray).parse_next(input)
-}
-
 // - array: "*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"
 #[allow(clippy::comparison_chain)]
 fn array(input: &mut &[u8]) -> PResult<RespArray> {
     let len: i64 = integer.parse_next(input)?;
-    if len == 0 {
-        return Ok(RespArray(vec![]));
+    if len == 0 || len == -1 {
+        return Ok(RespArray::new(vec![], true));
     } else if len < 0 {
         return Err(err_cut("array length must be non-negative"));
     }
@@ -139,7 +129,7 @@ fn array(input: &mut &[u8]) -> PResult<RespArray> {
     for _ in 0..len {
         arr.push(parse_frame(input)?);
     }
-    Ok(RespArray(arr))
+    Ok(RespArray::new(arr, false))
 }
 
 fn array_len(input: &mut &[u8]) -> PResult<()> {

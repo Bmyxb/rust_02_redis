@@ -97,7 +97,7 @@ mod tests {
         let mut map = RespMap::new();
         map.insert(
             "hello".to_string(),
-            BulkString::new("world".to_string()).into(),
+            BulkString::new("world".to_string(), false).into(),
         );
         map.insert("foo".to_string(), (-123456.789).into());
 
@@ -117,9 +117,9 @@ mod tests {
         let mut map = RespMap::new();
         map.insert(
             "hello".to_string(),
-            BulkString::new(b"world".to_vec()).into(),
+            BulkString::new(b"world".to_vec(), false).into(),
         );
-        map.insert("foo".to_string(), BulkString::new(b"bar".to_vec()).into());
+        map.insert("foo".to_string(), BulkString::new(b"bar".to_vec(), false).into());
         assert_eq!(frame, map);
 
         Ok(())

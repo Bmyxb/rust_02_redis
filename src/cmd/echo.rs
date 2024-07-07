@@ -3,7 +3,7 @@ use crate::{cmd::CommandError, BulkString, RespArray, RespFrame};
 
 impl CommandExecutor for Echo {
     fn execute(self, _backend: &crate::Backend) -> RespFrame {
-        BulkString::new(self.msg).into()
+        BulkString::new(self.msg, false).into()
     }
 }
 
@@ -14,7 +14,7 @@ impl TryFrom<RespArray> for Echo {
         let mut args = extract_args(v, 1)?.into_iter();
         match args.next() {
             Some(RespFrame::BulkString(msg)) => Ok(Echo {
-                msg: String::from_utf8(msg.0)?,
+                msg: String::from_utf8(msg.data)?,
             }),
             _ => Err(CommandError::InvalidArgument(
                 "Invalid argument".to_string(),

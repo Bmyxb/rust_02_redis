@@ -29,12 +29,12 @@ impl TryFrom<RespArray> for SAdd {
         };
         let mut args = extract_args(value, 1)?.into_iter();
         match args.next() {
-            Some(RespFrame::BulkString(key)) => result.key = String::from_utf8(key.0)?,
+            Some(RespFrame::BulkString(key)) => result.key = String::from_utf8(key.data)?,
             _ => return Err(CommandError::InvalidArgument("Invalid key".to_string())),
         };
 
         while let Some(RespFrame::BulkString(member)) = args.next() {
-            result.members.push(String::from_utf8(member.0)?);
+            result.members.push(String::from_utf8(member.data)?);
         }
 
         Ok(result)
@@ -49,8 +49,8 @@ impl TryFrom<RespArray> for SIsMember {
         match (args.next(), args.next()) {
             (Some(RespFrame::BulkString(key)), Some(RespFrame::BulkString(member))) => {
                 Ok(SIsMember {
-                    key: String::from_utf8(key.0)?,
-                    member: String::from_utf8(member.0)?,
+                    key: String::from_utf8(key.data)?,
+                    member: String::from_utf8(member.data)?,
                 })
             }
             _ => Err(CommandError::InvalidArgument(
